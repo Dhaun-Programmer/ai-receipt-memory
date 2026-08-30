@@ -13,6 +13,9 @@ class AIService {
       if (this.provider === 'openai' && this.apiKey && this.apiKey !== 'your-api-key-here') {
         return await this.analyzeWithOpenAI(imagePath);
       }
+      if (this.provider === 'huggingface' && this.apiKey) {
+        return await this.analyzeWithHuggingFace(imagePath);
+      }
       return await this.analyzeWithMock(imagePath);
     } catch (error) {
       console.error('AI analysis error:', error.message);
@@ -40,6 +43,79 @@ class AIService {
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a receipt analysis AI. Extract purchase information from the receipt image and return ONLY a valid JSON object with this exact schema:
+{
+  "storeName": "string",
+  "purchaseDate": "YYYY-MM-DD",
+  "receiptNumber": "string",
+  "currency": "INR",
+  "totalAmount": number,
+  "paymentMethod": "string",
+  "items": [
+    {
+      "name": "string",
+      "category": "Electronics|Clothing|Food|Grocery|Furniture|Travel|Healthcare|Footwear|Other",
+      "quantity": number,
+      "unitPrice": number,
+      "totalPrice": number,
+      "warrantyPeriod": "string or null",
+      "warrantyExpiry": "YYYY-MM-DD or null",
+      "returnPeriod": "string or null",
+      "returnDeadline": "YYYY-MM-DD or null"
+    }
+  ],
+  "confidence": number between 0 and 1
+}
+Rules:
+- Do NOT invent missing information. If warranty/return info is not on receipt, set to null.
+- If a date cannot be determined, use null.
+- Currency defaults to INR.
+- Confidence reflects how clearly you could read the receipt.
+- Return ONLY the JSON, no other text.`
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Analyze this receipt and extract all purchase information.' },
+            { type: 'image_url', image_url: { url: `data:${mimeType};base64,${base64Image}` } }
+          ]
+        }
+      ],
+      max_tokens: 2000,
+      temperature: 0.1
+    });
+
+    const content = response.choices[0].message.content;
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) return JSON.parse(jsonMatch[0]);
+    throw new Error('Invalid AI response format');
+  }
+
+  async analyzeWithHuggingFace(imagePath) {
+    const OpenAI = (await import('openai')).default;
+    const openai = new OpenAI({
+      baseURL: 'https://api-inference.huggingface.co/v1/',
+      apiKey: this.apiKey
+    });
+
+    let imageBuffer;
+    if (imagePath.startsWith('http')) {
+      const res = await axios.get(imagePath, { responseType: 'arraybuffer' });
+      imageBuffer = Buffer.from(res.data, 'binary');
+    } else {
+      imageBuffer = fs.readFileSync(imagePath);
+    }
+    
+    const base64Image = imageBuffer.toString('base64');
+    let ext = path.extname(imagePath.split('?')[0]).toLowerCase();
+    if (!ext) ext = '.jpeg';
+    const mimeType = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' }[ext] || 'image/jpeg';
+
+    const response = await openai.chat.completions.create({
+      model: 'Qwen/Qwen2-VL-7B-Instruct',
       messages: [
         {
           role: 'system',
@@ -163,6 +239,9 @@ Rules:
       if (this.provider === 'openai' && this.apiKey && this.apiKey !== 'your-api-key-here') {
         return await this.chatWithOpenAI(userMessage, purchaseContext);
       }
+      if (this.provider === 'huggingface' && this.apiKey) {
+        return await this.chatWithHuggingFace(userMessage, purchaseContext);
+      }
       return await this.chatWithMock(userMessage, purchaseContext);
     } catch (error) {
       console.error('AI chat error:', error.message);
@@ -176,6 +255,32 @@ Rules:
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
+      messages: [
+        {
+          role: 'system',
+          content: `You are a helpful purchase memory assistant. Answer questions about the user's purchase history based ONLY on the provided purchase data. Do not invent or assume purchases that are not in the data. If you cannot find relevant information, say "I couldn't find that information in your saved receipts."
+
+Purchase Data:
+${JSON.stringify(purchaseContext, null, 2)}`
+        },
+        { role: 'user', content: userMessage }
+      ],
+      max_tokens: 1000,
+      temperature: 0.3
+    });
+
+    return response.choices[0].message.content;
+  }
+
+  async chatWithHuggingFace(userMessage, purchaseContext) {
+    const OpenAI = (await import('openai')).default;
+    const openai = new OpenAI({
+      baseURL: 'https://api-inference.huggingface.co/v1/',
+      apiKey: this.apiKey
+    });
+
+    const response = await openai.chat.completions.create({
+      model: 'meta-llama/Meta-Llama-3.1-8B-Instruct',
       messages: [
         {
           role: 'system',
