@@ -22,7 +22,7 @@
     "axios": "^1.6.2",
     "sharp": "^0.33.0",
     "cloudinary": "^2.0.1",
-    "multer-storage-cloudinary": "^4.0.0"
+    "multer-storage-cloudinary-v2": "^2.0.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
