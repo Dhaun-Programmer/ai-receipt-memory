@@ -14,13 +14,12 @@ router.post('/analyze-receipt', auth, upload.single('receipt'), async (req, res)
   try {
     if (!req.file) return res.status(400).json({ message: 'Please upload a receipt image' });
 
-    const isCloudinary = req.file.path && req.file.path.startsWith('http');
-    const imagePath = isCloudinary ? req.file.path : path.join(__dirname, '../uploads', req.file.filename);
+    const imagePath = path.join(__dirname, '../uploads', req.file.filename);
     const analysis = await aiService.analyzeReceipt(imagePath);
 
     const receipt = new Receipt({
       userId: req.userId,
-      imageUrl: isCloudinary ? req.file.path : `/uploads/${req.file.filename}`,
+      imageUrl: `/uploads/${req.file.filename}`,
       storeName: analysis.storeName || 'Unknown Store',
       purchaseDate: analysis.purchaseDate ? new Date(analysis.purchaseDate) : new Date(),
       receiptNumber: analysis.receiptNumber || '',

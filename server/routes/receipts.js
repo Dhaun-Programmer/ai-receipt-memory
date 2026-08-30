@@ -11,14 +11,8 @@ const upload = require('../config/cloudinary');
 router.post('/upload', auth, upload.single('receipt'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'Please upload an image' });
-    
-    // Cloudinary returns the full URL in req.file.path. 
-    // Local storage still returns filename, so we check if path starts with http
-    const imageUrl = req.file.path && req.file.path.startsWith('http') 
-      ? req.file.path 
-      : `/uploads/${req.file.filename}`;
-      
-    res.json({ imageUrl, filename: req.file.filename || req.file.filename });
+    const imageUrl = `/uploads/${req.file.filename}`;
+    res.json({ imageUrl, filename: req.file.filename });
   } catch (error) {
     res.status(500).json({ message: 'Upload failed' });
   }
