@@ -24,7 +24,7 @@ class AIService {
   }
 
   async analyzeWithOpenAI(imagePath) {
-    const OpenAI = (await import('openai')).default;
+    const OpenAI = require('openai');
     const openai = new OpenAI({ apiKey: this.apiKey });
 
     let imageBuffer;
@@ -250,7 +250,7 @@ Rules:
   }
 
   async chatWithOpenAI(userMessage, purchaseContext) {
-    const OpenAI = (await import('openai')).default;
+    const OpenAI = require('openai');
     const openai = new OpenAI({ apiKey: this.apiKey });
 
     const response = await openai.chat.completions.create({
