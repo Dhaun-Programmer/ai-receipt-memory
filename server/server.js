@@ -6,6 +6,14 @@ const path = require('path');
 const fs = require('fs');
 const rateLimit = require('express-rate-limit');
 
+process.on('uncaughtException', (err) => {
+  console.error('UNCAUGHT EXCEPTION:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('UNHANDLED REJECTION:', err);
+});
+
+try {
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
@@ -21,6 +29,9 @@ const PORT = process.env.PORT || 5000;
 
 console.log('Starting server...');
 console.log('MONGODB_URI:', process.env.MONGODB_URI ? 'set' : 'NOT SET');
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'set' : 'NOT SET');
+console.log('AI_API_KEY:', process.env.AI_API_KEY ? 'set' : 'NOT SET');
+console.log('CLIENT_URL:', process.env.CLIENT_URL || 'not set');
 
 app.use(cors({
   origin: process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',') : ['http://localhost:5173', 'http://localhost:3000'],
@@ -66,8 +77,17 @@ mongoose.connect(process.env.MONGODB_URI)
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   })
   .catch(err => {
-    console.error('MongoDB connection error:', err.message);
+    console.error('=== MONGODB CONNECTION ERROR ===');
+    console.error('Error name:', err.name);
+    console.error('Error message:', err.message);
+    console.error('URI starts with:', process.env.MONGODB_URI?.substring(0, 20) + '...');
     process.exit(1);
   });
+
+} catch (startupErr) {
+  console.error('=== STARTUP ERROR ===');
+  console.error(startupErr);
+  process.exit(1);
+}
 
 module.exports = app;
